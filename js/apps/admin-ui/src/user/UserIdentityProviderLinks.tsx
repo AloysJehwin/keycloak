@@ -79,12 +79,14 @@ export const UserIdentityProviderLinks = ({
     })) as WithProviderId[];
 
     if (canQueryIDPDetails) {
-      const allProviders = await adminClient.identityProviders.find();
-      for (const element of allFedIds) {
-        element.providerId = allProviders.find(
-          (item) => item.alias === element.identityProvider,
-        )?.providerId!;
-      }
+      await Promise.all(
+        allFedIds.map(async (element) => {
+          const provider = await adminClient.identityProviders.findOne({
+            alias: element.identityProvider!,
+          });
+          element.providerId = provider?.providerId!;
+        }),
+      );
     }
 
     return allFedIds;

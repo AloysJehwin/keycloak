@@ -357,3 +357,58 @@ test.describe("Existing users", () => {
     await assertRowExists(page, "test-group");
   });
 });
+
+test.describe("Identity provider links", () => {
+  test("links a provider beyond the first page of identity providers", async ({
+    page,
+  }) => {
+    const aliases = Array.from(
+      { length: 101 },
+      (_, i) => `idp-${String(i).padStart(3, "0")}`,
+    );
+    const linkedAlias = aliases.at(-1)!;
+    await using testBed = await createTestBed({
+      identityProviders: aliases.map((alias) => ({
+        alias,
+        providerId: "oidc",
+        config: {
+          clientId: "client",
+          authorizationUrl: "https://idp.example.com/auth",
+          tokenUrl: "https://idp.example.com/token",
+        },
+      })),
+      users: [
+        {
+          username: "linked-user",
+          enabled: true,
+          federatedIdentities: [
+            {
+              identityProvider: linkedAlias,
+              userId: "external-id",
+              userName: "external-user",
+            },
+          ],
+        },
+      ],
+    });
+    const user = await adminClient.findUserByUsername(
+      testBed.realm,
+      "linked-user",
+    );
+
+    await login(page, {
+      to: toUser({
+        realm: testBed.realm,
+        id: user.id!,
+        tab: "identity-provider-links",
+      }),
+    });
+
+    await expect(
+      page.getByRole("link", { name: "Idp-100", exact: true }),
+    ).toHaveAttribute(
+      "href",
+      new RegExp(`/identity-providers/oidc/${linkedAlias}/settings$`),
+    );
+  });
+});
